@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz: Crónica de Dos Mundos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .option-btn:disabled { cursor: not-allowed; }
+        .progress-bar { transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen flex items-center justify-center p-4">
+
+    <div id="quiz-container" class="max-w-2xl w-full bg-white rounded-[2.5rem] shadow-2xl shadow-slate-200 overflow-hidden border border-white">
+        
+        <!-- Header del Quiz -->
+        <div id="quiz-header" class="bg-slate-900 p-6 text-white flex justify-between items-center">
+            <div>
+                <p class="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Historia de España</p>
+                <h2 id="current-category" class="text-lg font-bold">Unidad 1</h2>
+            </div>
+            <div class="text-right">
+                <span id="score-display" class="bg-indigo-600 px-4 py-2 rounded-2xl text-sm font-black italic shadow-lg shadow-indigo-900/20">Aciertos: 0</span>
+            </div>
+        </div>
+
+        <!-- Barra de Progreso -->
+        <div class="h-2 w-full bg-slate-100">
+            <div id="progress-bar" class="h-full bg-indigo-500 progress-bar" style="width: 0%"></div>
+        </div>
+
+        <div class="p-8 md:p-10">
+            <!-- Pantalla de Pregunta -->
+            <div id="question-screen">
+                <p id="question-number" class="text-indigo-600 font-black text-sm mb-2">PREGUNTA 1/50</p>
+                <h3 id="question-text" class="text-2xl font-extrabold text-slate-800 leading-tight mb-8">...</h3>
+                
+                <div id="options-grid" class="grid grid-cols-1 gap-3">
+                    <!-- Botones dinámicos -->
+                </div>
+
+                <!-- Feedback -->
+                <div id="feedback-area" class="mt-8 p-6 rounded-3xl hidden transition-all duration-300 border-2">
+                    <div class="flex items-center gap-3 mb-2">
+                        <div id="feedback-icon" class="w-8 h-8 rounded-full flex items-center justify-center text-white"></div>
+                        <p id="feedback-status" class="font-black text-lg"></p>
+                    </div>
+                    <p id="feedback-explanation" class="text-slate-600 text-sm leading-relaxed"></p>
+                    <button onclick="quizEngine.nextQuestion()" class="mt-6 w-full bg-slate-900 text-white py-4 rounded-2xl font-bold hover:bg-indigo-600 transition-colors">
+                        Siguiente Pregunta
+                    </button>
+                </div>
+            </div>
+
+            <!-- Pantalla de Resultados -->
+            <div id="results-screen" class="hidden text-center py-10">
+                <div class="w-24 h-24 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <svg class="w-12 h-12 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                </div>
+                <h2 class="text-4xl font-black text-slate-900 mb-2 italic">¡Prueba Finalizada!</h2>
+                <div class="text-7xl font-black text-indigo-600 my-8" id="final-score-text">0/50</div>
+                <div id="critique-box" class="bg-slate-50 p-6 rounded-3xl border border-slate-200 text-left mb-8">
+                    <!-- Crítica constructiva -->
+                </div>
+                <div class="flex flex-col gap-3">
+                    <button onclick="location.reload()" class="bg-indigo-600 text-white py-4 rounded-2xl font-bold hover:bg-indigo-700 transition-all">Reintentar Desafío</button>
+                    <a href="index.html" class="text-slate-400 font-bold hover:text-slate-600 transition-colors uppercase tracking-widest text-xs">Volver al Menú Principal</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const database = [
+            { q: "¿Qué evento marca el final de la Prehistoria?", a: ["La aparición del hombre", "La invención de la escritura", "La caída de Roma", "El descubrimiento del fuego"], c: 1, e: "La escritura permite el registro de eventos, marcando el inicio de la historia documentada." },
+            { q: "¿En qué año se divide el Imperio Romano por decisión de Teodosio?", a: ["476 d.C.", "395 d.C.", "711 d.C.", "212 d.C."], c: 1, e: "Teodosio dividió el imperio entre sus hijos Arcadio y Honorio para mejorar su defensa." },
+            { q: "¿Quién depuso al último emperador romano de Occidente en el 476?", a: ["Atila el Huno", "Odoacro", "Alarico", "Recaredo"], c: 1, e: "Odoacro, jefe de los hérulos, puso fin formal al Imperio Romano de Occidente." },
+            { q: "¿Qué tres tribus entraron en Hispania en el año 409?", a: ["Godos, Francos y Hunos", "Suevos, Vándalos y Alanos", "Vikingos, Celtas y Alanos", "Sajones, Anglos y Jutos"], c: 1, e: "Estas tribus cruzaron los Pirineos aprovechando la crisis romana interna." },
+            { q: "¿Cuál era la capital del Reino Visigodo en la península?", a: ["Córdoba", "Sevilla", "Toledo", "Tarraco"], c: 2, e: "Toledo fue el centro político, administrativo y religioso de la monarquía visigoda." },
+            { q: "¿Qué rey visigodo unificó la religión al convertirse al catolicismo?", a: ["Leovigildo", "Eurico", "Recaredo", "Don Rodrigo"], c: 2, e: "Recaredo abandonó el arrianismo en el III Concilio de Toledo (589) para unificar el reino." },
+            { q: "¿En qué batalla fue derrotado el último rey visigodo en 711?", a: ["Batalla de Covadonga", "Batalla de Guadalete", "Batalla de las Navas de Tolosa", "Batalla de Poitiers"], c: 1, e: "Don Rodrigo perdió ante el ejército musulmán, facilitando la conquista rápida de la península." },
+            { q: "¿Qué nombre recibió el territorio musulmán en la península?", a: ["Septimania", "Al-Ándalus", "Magreb", "Hispania"], c: 1, e: "Al-Ándalus es la denominación árabe para las tierras bajo dominio islámico en Iberia." },
+            { q: "¿Cuál es el libro sagrado que trajeron los musulmanes?", a: ["La Biblia", "El Talmud", "El Corán", "La Torá"], c: 2, e: "El Corán es el texto central del Islam y base de la nueva cultura andalusí." },
+            { q: "¿Durante qué periodo Al-Ándalus dependía de Damasco?", a: ["Califato de Córdoba", "Emirato Independiente", "Emirato Dependiente", "Reinos de Taifas"], c: 2, e: "Entre 711 y 756, Al-Ándalus era una provincia del Califato Omeya con sede en Siria." },
+            { q: "¿Quién fundó el Emirato Independiente en 756?", a: ["Abderramán I", "Abderramán III", "Almanzor", "Mahoma"], c: 0, e: "Abderramán I escapó de la masacre de los Omeyas en Oriente y se estableció en Córdoba." },
+            { q: "¿En qué año se proclamó el Califato de Córdoba?", a: ["756 d.C.", "929 d.C.", "1031 d.C.", "1212 d.C."], c: 1, e: "Abderramán III se proclamó califa para independizarse también en lo religioso." },
+            { q: "¿Cuál fue la etapa de mayor esplendor cultural de Al-Ándalus?", a: ["El Emirato", "El Califato", "Las Taifas", "El Reino Nazarí"], c: 1, e: "Bajo el Califato, Córdoba fue la ciudad más avanzada de Europa Occidental." },
+            { q: "¿Qué eran las Taifas?", a: ["Impuestos cristianos", "Pequeños reinos musulmanes divididos", "Fortalezas militares", "Leyes visigodas"], c: 1, e: "Tras la caída del Califato en 1031, el territorio se fragmentó en reinos enfrentados." },
+            { q: "¿En qué año ocurrió la batalla de las Navas de Tolosa?", a: ["722 d.C.", "1085 d.C.", "1212 d.C.", "1492 d.C."], c: 2, e: "Fue una victoria cristiana decisiva que permitió el avance hacia el sur de Andalucía." },
+            { q: "¿Qué ciudades conquistaron los cristianos tras 1212?", a: ["Madrid y Segovia", "Sevilla y Córdoba", "Valencia y Barcelona", "Granada y Málaga"], c: 1, e: "La victoria de las Navas abrió las puertas del valle del Guadalquivir." },
+            { q: "¿Cuál fue el último reino musulmán en la península?", a: ["Reino de Sevilla", "Reino de Toledo", "Reino Nazarí de Granada", "Reino de Zaragoza"], c: 2, e: "Granada resistió como tributaria de Castilla hasta finales del siglo XV." },
+            { q: "¿Qué batalla marca el inicio simbólico de la Reconquista en 722?", a: ["Guadalete", "Covadonga", "Roncesvalles", "Toro"], c: 1, e: "Don Pelayo venció a los musulmanes en Asturias, creando el primer núcleo de resistencia." },
+            { q: "¿En qué año Asturias se convirtió en el Reino de León?", a: ["750", "816", "914", "1031"], c: 2, e: "El traslado de la capital hacia el sur reflejó la expansión territorial cristiana." },
+            { q: "¿Qué sistema socioeconómico dominaba los reinos cristianos?", a: ["Capitalismo mercantil", "Feudalismo", "Esclavismo romano", "Comunismo primitivo"], c: 1, e: "Se basaba en el vasallaje, la agricultura de subsistencia y el control señorial." },
+            { q: "¿Qué tipo de arte destaca en los reinos cristianos medievales?", a: ["Arte Mudéjar y Románico", "Arte Barroco", "Arte Renacentista", "Arte Neoclásico"], c: 0, e: "El mudéjar es único por fusionar técnicas islámicas con estructuras cristianas." },
+            { q: "¿En qué año se casaron los Reyes Católicos?", a: ["1469", "1492", "1474", "1450"], c: 0, e: "Su matrimonio unió las coronas de Castilla y Aragón, sentando las bases de la España moderna." },
+            { q: "¿Qué ocurrió el 2 de enero de 1492?", a: ["Colón llegó a América", "La toma de Granada", "La expulsión de los franceses", "La muerte de Fernando"], c: 1, e: "Boabdil entregó las llaves de la ciudad, terminando con el dominio musulmán en la península." },
+            { q: "¿Cuándo llegó Colón a América?", a: ["Agosto de 1492", "Enero de 1492", "Octubre de 1492", "Marzo de 1493"], c: 2, e: "El 12 de octubre de 1492 es la fecha del desembarco en las Bahamas." },
+            { q: "¿Qué edad de la historia termina con el descubrimiento de América?", a: ["Edad Antigua", "Edad Media", "Edad Moderna", "Prehistoria"], c: 1, e: "1492 se considera convencionalmente el fin del medievo en la historiografía española." },
+            { q: "¿Qué edad comienza tras 1492 y llega hasta 1789?", a: ["Edad Contemporánea", "Edad Moderna", "Edad de Oro", "Edad de los Metales"], c: 1, e: "La Edad Moderna abarca desde el descubrimiento hasta la Revolución Francesa." },
+            { q: "¿Qué invento marca el inicio de la Edad Antigua?", a: ["La rueda", "La escritura", "La moneda", "La brújula"], c: 1, e: "La escritura define el paso de la prehistoria al registro histórico." },
+            { q: "¿Qué tribus germanas acompañaron a los suevos en 409?", a: ["Ostrogodos y Alanos", "Vándalos y Alanos", "Francos y Sajones", "Lombardos y Godos"], c: 1, e: "Fueron los tres grupos bárbaros que rompieron la frontera del Rin." },
+            { q: "¿De qué religión era la mayoría de la población hispanorromana?", a: ["Arriana", "Pagana", "Católica", "Musulmana"], c: 2, e: "Por ello, cuando los visigodos (arrianos) se convirtieron al catolicismo, el reino se estabilizó." },
+            { q: "¿En qué año desapareció el Califato de Córdoba?", a: ["929", "1031", "1212", "1492"], c: 1, e: "La 'fitna' o guerra civil provocó su fragmentación en reinos de taifas." },
+            { q: "¿Qué papel jugaban los castillos en los reinos cristianos?", a: ["Centros de ocio", "Defensa y control del territorio", "Sedes de universidades", "Mercados"], c: 1, e: "Eran el centro del poder feudal y refugio para los campesinos ante ataques." },
+            { q: "¿Quién era el profeta del Islam?", a: ["Abderramán", "Mahoma", "Alá", "Tariq"], c: 1, e: "Mahoma unificó las tribus árabes bajo una nueva fe en el siglo VII." },
+            { q: "¿Cómo se llama el estilo artístico de musulmanes en tierra cristiana?", a: ["Mozárabe", "Mudéjar", "Gótico", "Plateresco"], c: 1, e: "Es un estilo de transición riquísimo en yeserías, ladrillo y azulejos." },
+            { q: "¿A qué reino pertenecía Fernando el Católico?", a: ["Castilla", "Navarra", "Aragón", "Portugal"], c: 2, e: "Fernando era heredero de la Corona de Aragón." },
+            { q: "¿Y la reina Isabel?", a: ["León", "Castilla", "Granada", "Navarra"], c: 1, e: "Isabel accedió al trono de Castilla tras una guerra civil contra su sobrina." },
+            { q: "¿Qué imperio perduró en Oriente hasta 1453?", a: ["Imperio Romano de Occidente", "Imperio Bizantino", "Califato Abasí", "Imperio Carolingio"], c: 1, e: "Bizancio mantuvo la tradición romana mil años más que Roma." },
+            { q: "¿Qué hito marca el inicio de la Edad Contemporánea?", a: ["Descubrimiento de América", "Caída de Constantinopla", "Revolución Francesa", "Revolución Industrial"], c: 2, e: "1789 es la fecha clave para el cambio a la edad actual." },
+            { q: "¿Qué ciudad fue la capital del califato inicial de Al-Ándalus?", a: ["Bagdad", "Damasco", "El Cairo", "Jerusalén"], c: 1, e: "Los Omeyas reinaban desde Damasco (Siria)." },
+            { q: "¿Quién lideró el ejército musulmán en 711?", a: ["Musa", "Tariq", "Abderramán", "Boabdil"], c: 1, e: "Tariq ibn Ziyad cruzó el estrecho y dio nombre a Gibraltar (Yabal Tariq)." },
+            { q: "¿Qué era el vasallaje?", a: ["Un impuesto", "Un contrato de fidelidad entre nobles", "Una técnica de cultivo", "Un estilo de pintura"], c: 1, e: "Base del feudalismo: un noble juraba lealtad a otro a cambio de tierras (feudos)." },
+            { q: "¿Qué reinos se formaron entre 816 y 878?", a: ["Sevilla y Córdoba", "Pamplona, Aragón y Condados Catalanes", "Asturias y León", "Castilla y Portugal"], c: 1, e: "Eran los núcleos de resistencia pirenaica." },
+            { q: "¿Cómo se llamaba el último rey de Granada?", a: ["Almanzor", "Boabdil", "Averroes", "Yusuf"], c: 1, e: "Boabdil 'el Chico' fue quien rindió la ciudad en 1492." },
+            { q: "¿Qué buscaba la expedición de Colón?", a: ["Llegar a América", "Llegar a las Indias por el Oeste", "Conquistar África", "Dar la vuelta al mundo"], c: 1, e: "Colón murió creyendo que había llegado a las islas cercanas a Asia (Las Indias)." },
+            { q: "¿Cuál era la lengua oficial tras la caída de Roma?", a: ["Árabe", "Latín", "Castellano antiguo", "Gótico"], c: 1, e: "El latín evolucionó hacia las lenguas romances (castellano, catalán, gallego)." },
+            { q: "¿Qué edad de la historia es la más larga?", a: ["Edad Antigua", "Prehistoria", "Edad Media", "Edad Moderna"], c: 1, e: "La prehistoria abarca millones de años, desde los primeros homínidos." },
+            { q: "¿Qué hito científico impulsó el final de la Edad Media?", a: ["La Imprenta", "Internet", "El Telescopio", "La Máquina de Vapor"], c: 0, e: "Gutenberg permitió la difusión masiva de ideas y cultura." },
+            { q: "¿En qué año el Reino de Asturias gana su primera gran batalla?", a: ["711", "722", "800", "914"], c: 1, e: "Covadonga (722) es el punto de partida mítico de la Reconquista." },
+            { q: "¿De qué cultura procede la palabra 'Álgebra' o 'Alcohol'?", a: ["Visigoda", "Romana", "Árabe", "Celta"], c: 2, e: "El legado lingüístico y científico de Al-Ándalus en España es inmenso." },
+            { q: "¿Qué corona conquistó las Islas Canarias?", a: ["Aragón", "Castilla", "Navarra", "Portugal"], c: 1, e: "Fue una empresa financiada mayoritariamente por la corona castellana." },
+            { q: "¿Cuál es el resumen de 1492 para España?", a: ["Crisis económica", "Fin de la guerra interna y expansión global", "Guerra civil", "Invasión bárbara"], c: 1, e: "Terminó la Reconquista, se unificó la religión y se descubrió un nuevo continente." }
+        ];
+
+        const quizEngine = {
+            current: 0,
+            score: 0,
+            isAnswered: false,
+
+            init() {
+                this.render();
+            },
+
+            render() {
+                const q = database[this.current];
+                document.getElementById('question-number').innerText = `PREGUNTA ${this.current + 1}/${database.length}`;
+                document.getElementById('question-text').innerText = q.q;
+                document.getElementById('progress-bar').style.width = `${((this.current) / database.length) * 100}%`;
+                
+                const grid = document.getElementById('options-grid');
+                grid.innerHTML = '';
+                
+                q.a.forEach((opt, i) => {
+                    const b = document.createElement('button');
+                    b.className = "option-btn w-full text-left p-5 rounded-2xl border-2 border-slate-200 font-bold text-slate-700 hover:border-indigo-500 hover:bg-indigo-50 transition-all";
+                    b.innerText = opt;
+                    b.onclick = () => this.handleAnswer(i);
+                    grid.appendChild(b);
+                });
+
+                document.getElementById('feedback-area').classList.add('hidden');
+                this.isAnswered = false;
+            },
+
+            handleAnswer(idx) {
+                if(this.isAnswered) return;
+                this.isAnswered = true;
+                
+                const q = database[this.current];
+                const btns = document.querySelectorAll('.option-btn');
+                const feedback = document.getElementById('feedback-area');
+                const status = document.getElementById('feedback-status');
+                const icon = document.getElementById('feedback-icon');
+
+                btns.forEach(b => b.disabled = true);
+
+                if(idx === q.c) {
+                    this.score++;
+                    status.innerText = "¡Correcto!";
+                    status.className = "text-green-600 font-black text-lg";
+                    icon.className = "w-8 h-8 rounded-full flex items-center justify-center text-white bg-green-500 shadow-lg shadow-green-200";
+                    icon.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>';
+                    btns[idx].classList.add('bg-green-100', 'border-green-500', 'text-green-800');
+                    feedback.classList.add('bg-green-50', 'border-green-100');
+                } else {
+                    status.innerText = "Incorrecto";
+                    status.className = "text-red-600 font-black text-lg";
+                    icon.className = "w-8 h-8 rounded-full flex items-center justify-center text-white bg-red-500 shadow-lg shadow-red-200";
+                    icon.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path></svg>';
+                    btns[idx].classList.add('bg-red-100', 'border-red-500', 'text-red-800');
+                    btns[q.c].classList.add('bg-green-50', 'border-green-400', 'text-green-800');
+                    feedback.classList.add('bg-red-50', 'border-red-100');
+                }
+
+                document.getElementById('feedback-explanation').innerText = q.e;
+                document.getElementById('score-display').innerText = `Aciertos: ${this.score}`;
+                feedback.classList.remove('hidden');
+            },
+
+            nextQuestion() {
+                this.current++;
+                if(this.current < database.length) {
+                    this.render();
+                } else {
+                    this.showResults();
+                }
+            },
+
+            showResults() {
+                document.getElementById('question-screen').classList.add('hidden');
+                document.getElementById('results-screen').classList.remove('hidden');
+                document.getElementById('progress-bar').style.width = "100%";
+                document.getElementById('final-score-text').innerText = `${this.score}/${database.length}`;
+                
+                let msg = "";
+                const p = (this.score / database.length) * 100;
+                if(p >= 90) msg = "<strong>Nivel: Historiador Maestro.</strong> Has demostrado un dominio absoluto de la cronología española. Tu capacidad para retener nombres y fechas es de élite.";
+                else if(p >= 70) msg = "<strong>Nivel: Cronista Avanzado.</strong> Tienes los conceptos claros, pero algún detalle de Al-Ándalus o de la unión de los reinos se te ha escapado. Muy buen trabajo.";
+                else if(p >= 50) msg = "<strong>Nivel: Aprendiz de Escribano.</strong> Apruebas, pero por los pelos. Necesitas repasar las fechas críticas: 476, 711 y 1492. ¡No las olvides!";
+                else msg = "<strong>Nivel: Siervo del Feudo.</strong> Has fallado en hitos básicos. Vuelve a leer el documento sobre la caída de Roma y la evolución de Al-Ándalus, es fundamental.";
+                
+                document.getElementById('critique-box').innerHTML = msg;
+            }
+        };
+
+        quizEngine.init();
+    </script>
+</body>
+</html>
